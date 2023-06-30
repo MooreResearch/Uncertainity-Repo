@@ -254,94 +254,61 @@ End
 #tag WindowCode
 	#tag Method, Flags = &h0
 		Function MyMethod(valueString as String, uncertaintyString as String) As String
-		  ' Prompt the user for the value and uncertainty
-		  Var inputValueString As String = valueTextField.Text
-		  Var inputUncertaintyString As String = uncertaintyTextField.Text
-		  
-		  ' Validate input and convert to double
-		  Var value As Double
-		  Var uncertainty As Double
-		  
-		  If Not IsNumeric(inputValueString) Then
+		  ' Validate input
+		  If Not IsNumeric(valueString) Then
 		    MsgBox("Invalid value entered!")
 		    Return ""
 		  End If
 		  
-		  If Not IsNumeric(inputUncertaintyString) Then
+		  If Not IsNumeric(uncertaintyString) Then
 		    MsgBox("Invalid uncertainty entered!")
 		    Return ""
 		  End If
 		  
-		  value = CDbl(inputValueString)
-		  uncertainty = CDbl(inputUncertaintyString)
-		  
-		  Try
-		    If uncertainty <= 0 Then
-		      Raise New RuntimeException("Uncertainty must be greater than zero!")
-		    End If
-		  Catch e As RuntimeException
-		    MsgBox(e.Message)
-		    Return ""
-		  End Try
-		  
-		  Var valueExponent As Integer = Floor(Log(Abs(value)) / Log(10))
-		  Var uncertaintyExponent As Integer = Floor(Log(uncertainty) / Log(10))
-		  
-		  ' Calculate the rounded value mantissa
-		  Var valueMantissa As Double = abs(value / (10 ^ valueExponent))
-		  Var roundedValueMantissa As Double = Round(valueMantissa * 1000) / 1000
-		  
-		  ' Calculate the rounded uncertainty
-		  Var uncertaintyMantissa As Double = uncertainty / (10 ^ uncertaintyExponent)
-		  Var roundedUncertainty As Double = Round(uncertaintyMantissa * 10)
-		  
-		  ' Display the exponents
-		  MsgBox("The exponent for the value is " + Str(valueExponent))
-		  MsgBox("The exponent for the uncertainty is " + Str(uncertaintyExponent))
-		  MsgBox("The rounded uncertainty is " + Str(roundedUncertainty))
-		  
-		  ' Adjust the rounded uncertainty for final display
-		  Var uncertaintyForDisplay As Double = roundedUncertainty * 10 ^ (-3)
-		  uncertaintyForDisplay = Round(uncertaintyForDisplay * 1000) / 1000
-		  
-		  ' Construct the final output
-		  Var spacesNeeded As Integer = abs(valueExponent - uncertaintyExponent) + 5
-		  Var spaceString As String = ""
-		  
-		  Var BeforeValue As String = "  "
-		  if value < 0 then BeforeValue = "- "
-		  
-		  ' Check if the value exponent is within the range -3 to 6
-		  If valueExponent >= -3 And valueExponent <= 6 Then
-		    ' Format the value with one decimal place
-		    Var valueStr As String = Str(Abs(value))
-		    If Not valueStr.Contains(".") Then
-		      valueStr = valueStr + ".0"
-		    End If
-		    
-		    
-		    ' Format the uncertainty with one decimal place
-		    Var uncertaintyStr As String = Str(uncertainty)
-		    If Not uncertaintyStr.Contains(".") Then
-		      uncertaintyStr = uncertaintyStr + ".0"
-		    End If
-		    
-		    ' Calculate the number of spaces needed to align the uncertainty under the value
-		    spacesNeeded = valueStr.Length - uncertaintyStr.Length
-		    
-		    ' Create a string of spaces for alignment
-		    spaceString = ""
-		    For i As Integer = 1 To spacesNeeded
-		      spaceString = spaceString + " "
-		    Next
-		    
-		    Return BeforeValue + valueStr + EndOfLine + spaceString + "± " + uncertaintyStr
-		  Else
-		    ' Use scientific notation for values outside the range -3 to 6
-		    Var plusMinusLine As String = spaceString + "± " + Str(uncertaintyForDisplay) + "e" + Str(valueExponent)
-		    Return BeforeValue + Str(roundedValueMantissa) + "e" + Str(valueExponent) + EndOfLine + plusMinusLine
+		  ' Handle scientific notation
+		  If valueString.IndexOf("e") <> -1 Or valueString.IndexOf("E") <> -1 Then
+		    valueString = Format(CDbl(valueString), "#############.################")
+		  End If
+		  If uncertaintyString.IndexOf("e") <> -1 Or uncertaintyString.IndexOf("E") <> -1 Then
+		    uncertaintyString = Format(CDbl(uncertaintyString), "#############.################")
 		  End If
 		  
+		  ' Find the decimal point in the uncertainty string
+		  Var decIndex As Integer = uncertaintyString.IndexOf(".")
+		  
+		  ' If there's no decimal point in the uncertainty string, assume it's at the end
+		  If decIndex = -1 Then
+		    decIndex = uncertaintyString.Length
+		  End If
+		  
+		  ' Find the first significant digit of the uncertainty
+		  Var sigDigitIndex As Integer = -1
+		  For i As Integer = decIndex To uncertaintyString.Length - 1
+		    If uncertaintyString.Mid(i+1, 1) <> "0" And uncertaintyString.Mid(i+1, 1) <> "." Then
+		      sigDigitIndex = i
+		      Exit
+		    End If
+		  Next
+		  
+		  ' If there's no significant digit in the uncertainty string, set uncertainty to zero
+		  If sigDigitIndex = -1 Then
+		    uncertaintyString = "0"
+		  Else
+		    ' Keep only one digit after decimal point for the uncertainty
+		    uncertaintyString = uncertaintyString.Left(sigDigitIndex+2)
+		    
+		    ' If the significant digit is not the last character in the string, add a zero at the end
+		    If sigDigitIndex < uncertaintyString.Length-1 Then
+		      uncertaintyString = uncertaintyString + "0"
+		    End If
+		  End If
+		  
+		  ' Determine the sign of the value
+		  Var BeforeValue As String = "  "
+		  If valueString.Val < 0 Then BeforeValue = "- "
+		  
+		  ' Return the value and uncertainty
+		  Return BeforeValue + valueString + EndOfLine + "± " + uncertaintyString
 		End Function
 	#tag EndMethod
 
